@@ -341,41 +341,45 @@ pile *spill_stack(pile *p) {
 }
 
 // Inner
-void _dfs(hierarchie h, pile *p, int rect) {
+void _dfs_ordre(hierarchie h, pile *p, int rect) {
   if (h.nb_enfants[rect] == 0) {
     empiler(p, rect);
     return;
   } else {
     for (int i = 0; i < h.nb_enfants[rect]; i++) {
-      _dfs(h, p, h.enfants[rect][i]);
+      _dfs_ordre(h, p, h.enfants[rect][i]);
     }
     empiler(p, rect);
     return;
   }
 }
 
-pile *dfs(hierarchie h) {
+pile *dfs_ordre(hierarchie h) {
   pile *p = creer_pile(h.taille);
   assert(h.parent[0] == -1);
-  _dfs(h, p, 0);
+  _dfs_ordre(h, p, 0);
   return p;
 }
 
 pile *ordre_remplissage_depuis_origine(hierarchie h) {
-  pile *ordre = dfs(h); // ici : remplacer NULL par une allocation dynamique
+  pile *ordre =
+      dfs_ordre(h); // ici : remplacer NULL par une allocation dynamique
   return ordre;
 }
 
-void test_dfs() {
+void test_dfs_ordre() {
   int taille_profil_1 = 35;
   direction profil_1[35] = {B, B, B, D, H, D, B, B, D, H, H, H,
                             D, B, B, D, H, D, B, B, D, H, D, B,
                             D, H, H, D, B, B, D, H, H, H, H};
+
+  //
   //(0, 0)
   //|         __                     |
   //|   __   |  |   __          __   |
   //|__|  |  |  |__|  |   __   |  |  |
   //      |__|        |__|  |__|  |__|
+  //
 
   hierarchie h = construire_hierarchie(profil_1, taille_profil_1);
   int *ordre = ordre_remplissage_depuis_origine(h)->contenu;
@@ -387,14 +391,20 @@ void test_dfs() {
 
 float clamp_to_one_exceed(float a) { return (a >= 1.0) ? 1.0 : a; }
 float clamp_to_zero_exceed(float a) { return (a <= 0.0) ? 0.0 : a; }
+
 float *hauteurs_eau_depuis_origine(hierarchie h, float t) {
   float *hauteur = malloc(sizeof(float) * h.taille);
-  int *ordre = ordre_remplissage_depuis_origine(h)->contenu;
   assert(hauteur);
+  int *ordre = ordre_remplissage_depuis_origine(h)->contenu;
+
   float remaining_time = t;
   for (int i = 0; i < h.taille; i++) {
     int idx = ordre[i];
-    hauteur[idx] = clamp_to_one_exceed(remaining_time / (float)h.largeur[idx]);
+    if (idx == 0)
+      hauteur[idx] = 0.0; // Puisque le rectangle 0 est arbitrairement haut
+    else
+      hauteur[idx] =
+          clamp_to_one_exceed(remaining_time / (float)h.largeur[idx]);
     remaining_time =
         clamp_to_zero_exceed(remaining_time - (float)h.largeur[idx]);
   }
@@ -403,29 +413,162 @@ float *hauteurs_eau_depuis_origine(hierarchie h, float t) {
 
 /*** Question 17 ***/
 /* Votre réponse ici :
+On suppose que deux rectangles R1 et R2 (quelconques, fixés) se remplissent en
+même temps, dans une configuration favorable à cet évènement. On montre alors
+qu'aucun troisième rectangle R3 (quelconque) ne peut être rempli en même temps.
+
 Il se présente deux cas qu'il faut étudier séparément et précisément:
-    -cas vertical: il est trivial, au vu des règles d' "écoulement" de l'eau, que deux rectangles à des altitudes y1 et y2 différentes
-    ne se rempliront pas simltanément
-    -cas horizontal: si les deux rectangles se situent à la même altitude y, alors puisque ce sont deux rectangles distincts,
-    ils sont nécessairement séparés par une section de mur. Or, si la 
 
-
-
-
+    -cas lien parent-enfant: il est trivial, au vu des règles d' "écoulement" de
+l'eau, que deux rectangles à des altitudes y1 et y2 différentes, et dont l'un
+est un enfant (potentiellement en sautant plusieurs générations) de l'autre, ne
+se rempliront pas simltanément. Donc R3 dans cette situation par rapport à R1 ou
+R2 ne sera pas rempli simultanément. -cas pas de lien parent-enfant: si R3 et R2
+ou R3 et R1 n'établissent aucun lien parent-enfant, alors puisqu'en plus ce sont
+deux rectangles distincts, ils sont nécessairement séparés par une section de
+mur. Or, puisque R1 et R2 se remplissent simultanément conformément au cas de la
+Fig. 6, la source doit se situer, selon la coordonnée x, entre eux deux
+(condition nécessaire, non démontrée mais visuellement évidente). Elle ne se
+situe donc pas entre R3 et R2 ou R3 et R1, et donc R3 ne sera pas rempli en même
+temps que R1 et R2.
 */
 
 /*** Question 18 ***/
-int *volumes_totaux(hierarchie h) {
-  int *volume = NULL; // ici : remplacer NULL par une allocation dynamique
 
-  /*** A compléter ***/
+// On implémente une table de hachage pour opérer de la mémoïsation sur les
+// calculs intermédiaires de volumes.
+// On ne résoud pas les problèmes liées aux collisions d'indice, puisqu'on se
+// concentre purement sur de l'optimisation d'opérations et non pas sur une
+// table 100% foncitonnelle.
+
+// Paire (clé, valeur), composante de base de HashMap
+typedef struct _pair {
+  char *key;         // Clé de chaque paire
+  int val;           // Valeur de chaque paire
+  struct pair *next; // La table de hachage est implémentée sous forme d'une
+                     // liste simplement chaînée
+} Pair;
+
+typedef struct _hashmap {
+  Pair **list;
+  unsigned int cap;
+  unsigned int len;
+} HashMap;
+
+// Crée une nouvelle table de hachage, avec une capacité par défaut de 8 et une
+// longueur nulle à l'origine, ainsi qu'une liste nulle.
+HashMap *newHashMap() {
+  HashMap *this = malloc(sizeof(HashMap));
+  assert(this);
+  this->cap = 8; // default: 8
+  this->len = 0;
+  this->list = calloc((this->cap), sizeof(Pair *));
+  return this;
+}
+
+// Fonction de hachage des clés
+unsigned hash(HashMap *hmap, char *key) {
+  unsigned code;
+  for (code = 0; *key != '\0'; key++) {
+    code = *key + 31 * code;
+  }
+  return code % (hmap->cap);
+}
+
+bool key_is_in(HashMap *this, char *key) {
+  Pair *current;
+  for (current = this->list[hash(this, key)]; current;
+       current = (Pair *)current->next) {
+    if (!strcmp(current->key, key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int get(HashMap *this, char *key) {
+  Pair *current;
+  for (current = this->list[hash(this, key)]; current;
+       current = (Pair *)current->next) {
+    if (!strcmp(current->key, key)) {
+      return current->val;
+    }
+  }
+  fprintf(stderr, "%s is not found\n", key);
+  exit(EXIT_FAILURE);
+}
+
+void set(HashMap *this, char *key, int val) {
+  unsigned index = hash(this, key);
+  Pair *current;
+  for (current = this->list[index]; current != NULL;
+       current = (Pair *)current->next) {
+    if (!strcmp(current->key, key)) {
+      current->val = val;
+      return;
+    }
+  }
+  Pair *p = malloc(sizeof(*p));
+  p->key = key;
+  p->val = val;
+  p->next = (struct pair *)this->list[index];
+  this->list[index] = p;
+  this->len++;
+}
+
+int _dfs_volumes(hierarchie h, int rect, HashMap *hmap) {
+  if (h.nb_enfants[rect] == 0)
+    return h.largeur[rect];
+  else {
+    int count = 0;
+    char *key_buff = malloc(sizeof(char) * 64);
+    char *key_self_buff = malloc(sizeof(char) * 64);
+
+    sprintf(key_buff, "%d", rect);
+
+    for (int i = 0; i < h.nb_enfants[rect]; i++) {
+      int enfant = h.enfants[rect][i];
+      sprintf(key_buff, "%d", enfant);
+
+      if (key_is_in(hmap, key_buff)) {
+        count += get(hmap, key_buff);
+      } else {
+        count += _dfs_volumes(h, enfant, hmap);
+        set(hmap, key_self_buff, count);
+      }
+    }
+
+    return h.largeur[rect] + count;
+  }
+}
+
+int *volumes_totaux(hierarchie h) {
+  int *volume = malloc(sizeof(int) * h.taille);
+  HashMap *hmap = newHashMap();
+  assert(volume);
+
+  for (int i = 0; i < h.taille; i++) {
+    volume[i] = _dfs_volumes(h, i, hmap);
+  }
 
   return volume;
 }
 
-void print_arr(float *arr, size_t size) {
+/*** Question 19 ***/
+float* hauteurs_eau_depuis_source(hierarchie h, float t, int source) {
+  
+}
+
+void print_arr_float(float *arr, int size) {
   for (int i = 0; i < size; i++) {
     printf("%f, ", arr[i]);
+  }
+  printf("\n");
+}
+
+void print_arr_int(int *arr, int size) {
+  for (int i = 0; i < size; i++) {
+    printf("%d, ", arr[i]);
   }
   printf("\n");
 }
@@ -439,19 +582,19 @@ int main() {
 
   assert(nombre_B(profil_1, taille_profil_1) == 12);
 
-  test_pile();
-
   hierarchie h = construire_hierarchie(profil_1, taille_profil_1);
   afficher_hierarchie(h);
 
-  print_stack(ordre_remplissage_depuis_origine(h));
-  test_dfs();
+  test_pile();
+  test_dfs_ordre();
   test_hierarchie();
-  print_arr(hauteurs_eau_depuis_origine(h, 15.0), h.taille);
-  
 
+  print_stack(ordre_remplissage_depuis_origine(h));
+  print_arr_float(hauteurs_eau_depuis_origine(h, 15.0), h.taille);
+  print_arr_int(volumes_totaux(h), h.taille);
   dessiner_eau(h, hauteurs_eau_depuis_origine(h, 13.0));
+
   liberer_hierarchie(h);
 
-    return 0;
+  return 0;
 }
