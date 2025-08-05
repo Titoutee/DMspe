@@ -403,7 +403,11 @@ float *hauteurs_eau_depuis_origine(hierarchie h, float t) {
 
 /*** Question 17 ***/
 /* Votre réponse ici :
-
+Il se présente deux cas qu'il faut étudier séparément et précisément:
+    -cas vertical: il est trivial, au vu des règles d' "écoulement" de l'eau, que deux rectangles à des altitudes y1 et y2 différentes
+    ne se rempliront pas simltanément
+    -cas horizontal: si les deux rectangles se situent à la même altitude y, alors puisque ce sont deux rectangles distincts,
+    ils sont nécessairement séparés par une section de mur. Or, si la 
 
 
 
