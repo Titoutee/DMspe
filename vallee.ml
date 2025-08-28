@@ -162,10 +162,7 @@ let _ =
   assert (fond vallee_4 = (6, 10));
   Printf.printf "\nTous les tests de la question 6 ont été validés.\n";
   Printf.printf "Vous pouvez passer à la question suivante.\n" in
-    
-
-
-
+  
 
 (*** Question 7 ***)
 let plateaux (v : direction list) = 

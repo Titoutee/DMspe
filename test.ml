@@ -8,8 +8,7 @@ let vallee_3 = [B; B; B; D; B; B; B; D; D; B; D; D; H; H; H; H]
 let vallee_4 = [B; B; B; D; D; B; D; D; D; D; B; B; B; B; B; B; 
                 D; H; H; H; H; H; H; H; D; D; D; D; D; H; D; D]
 
-let vallee_5 = [D; B; B; D; D; B; D; D; D; D; B; B; B; B; B; B; 
-                D; H; H; H; H; H; H; H; D; D; D; D; D; H; D; D]
+
 (*** Question 1 ***)
 let rec list_len l = match l with 
   | [] -> 0
@@ -172,7 +171,6 @@ let fond (v : direction list) : int * int =
     | [] -> () 
     | h::t -> if is_lower_than h !bottom then bottom := h; aux t in
   aux points; !bottom;;
-    
 
 (*** Tests question 6 ***)
 let _ =
@@ -190,7 +188,7 @@ let rec reduce li = match li with
     | _::[] -> []
     | h::t -> h::(reduce t);;
 
-(* plateaux est vien en cpxité linéaire *)
+(* plateaux est bien en cpxité linéaire *)
 let plateaux (v : direction list) = 
   assert (est_une_vallee v);
   let points = reduce (liste_des_points v) in
@@ -199,7 +197,6 @@ let plateaux (v : direction list) =
   let start = ref (-1, -1) in
   let plates = ref [] in
   let i = ref 0 in
-  let len = List.length l in 
 
   let aux1 p = 
     assert (!start <> (-1, -1));
@@ -237,14 +234,28 @@ let _ =
   Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 (*** Question 8 ***)
-let decomposition_en_rectangles (v : direction list) = 
-  let plateaux = plateaux v in
-  
+let decomposition_en_rectangles v = 
+  let points = liste_des_points v in
+  let p = List.stable_sort (fun (_, _, y) (_, _, _y) -> - compare y _y) (plateaux v) in
 
+  let max_width li = 
+    let arr = Array.of_list li in 
+    let length = Array.length arr in 
+    let (x2, _) = arr.(length-1) in 
+    let (x1, _) = arr.(0) in 
+    abs(x2-x1) in
 
+  let top_width = max_width points in
 
+  let rec aux_core li = 
+    match li with
+    | [] -> []
+    | (x1, x2, y)::[] -> (top_width, -1)::[]
+    | (x1, x2, y)::(_x1, _x2, _y)::[] -> if y = _y then (top_width, -1)::[] else (top_width-(_x2-_x1), abs(_y-y))::(top_width, -1)::[]
+    | (x1, x2, y)::(_x1, _x2, _y)::(__x1, __x2, __y)::l -> let diff = if compare x1 _x1 <= 0 then (_x2-x1) else (x2-_x1) in
+      if y = _y then begin (diff, abs(__y-_y))::aux_core((__x1, __x2, __y)::l) end else if _y = __y then (min (abs(__x2-_x1)) (abs(_x2-__x1)), abs(_y-y))::aux_core((_x1, _x2, _y)::(__x1, __x2, __y)::l) else (diff-(_x2-_x1), abs(_y-y))::aux_core((_x1, _x2, _y)::(__x1, __x2, __y)::l) in
+  aux_core p;;
 
-(*** Tests question 8 ***)
 let _ =
   let r1 = [(3, 1); (6, 1); (7, 2); (8, 1); (11, 1); (13, -1)] in
   let r2 = [(2, 1); (4, 3); (5, -1)] in
@@ -255,4 +266,51 @@ let _ =
   assert (decomposition_en_rectangles vallee_3 = r3);
   assert (decomposition_en_rectangles vallee_4 = r4);
   Printf.printf "\nTous les tests de la question 8 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in;;
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
+
+(*** Question 9 ***)
+let hauteur_de_l_eau (t : float) (v : direction list) =
+  let rectangles = decomposition_en_rectangles v in
+
+  let rec aux t_remain h_acc = function
+    | [] -> h_acc
+    | (w, h)::rest -> let wf = float_of_int w in
+    if h = -1 then h_acc +. t_remain /. wf else begin
+      let hf = float_of_int h in 
+      let t_rect = wf *. hf in
+      if t_rect>t_remain then h_acc +. t_remain /. wf else hf +. (aux (t_remain-.(wf *. hf)) h_acc rest) end in
+  aux t 0. rectangles;;
+
+(*** Tests question 9 ***)
+let _ =
+  assert (hauteur_de_l_eau 0.0 vallee_1 = 0.0);
+  assert (hauteur_de_l_eau 3.0 vallee_1 = 1.0);
+  assert (hauteur_de_l_eau 9.0 vallee_1 = 2.0);
+  assert (hauteur_de_l_eau 16.0 vallee_1 = 3.0);
+  assert (hauteur_de_l_eau 23.0 vallee_1 = 4.0);
+  assert (hauteur_de_l_eau 31.0 vallee_1 = 5.0);
+  assert (hauteur_de_l_eau 42.0 vallee_1 = 6.0);
+  assert (hauteur_de_l_eau 55.0 vallee_1 = 7.0);
+  assert (hauteur_de_l_eau 68.0 vallee_1 = 8.0);
+
+  assert (hauteur_de_l_eau 2.0 vallee_2 = 1.0);
+  assert (hauteur_de_l_eau 6.0 vallee_2 = 2.0);
+
+  for i=0 to 1000 do
+    let t = (float_of_int i /. 10.) in
+    assert (hauteur_de_l_eau t vallee_2 = hauteur_de_l_eau t vallee_3)
+  done;
+  
+  assert (hauteur_de_l_eau 0.0 vallee_4 = 0.0);
+  assert (hauteur_de_l_eau 1.0 vallee_4 = 1.0);
+  assert (hauteur_de_l_eau 2.0 vallee_4 = 2.0);
+  assert (hauteur_de_l_eau 3.0 vallee_4 = 3.0);
+  assert (hauteur_de_l_eau 4.0 vallee_4 = 4.0);
+  assert (hauteur_de_l_eau 5.0 vallee_4 = 5.0);
+  assert (hauteur_de_l_eau 6.0 vallee_4 = 6.0);
+  assert (hauteur_de_l_eau 11.0 vallee_4 = 7.0);
+  assert (hauteur_de_l_eau 23.0 vallee_4 = 8.0);
+  assert (hauteur_de_l_eau 37.0 vallee_4 = 9.0);
+
+  Printf.printf "\nTous les tests de la question 9 ont été validés.\n";
+  Printf.printf "Vous avez terminé la partie OCaml.\n";;

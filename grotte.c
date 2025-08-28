@@ -555,14 +555,74 @@ int *volumes_totaux(hierarchie h) {
 }
 
 /*** Question 19 ***/
-float* hauteurs_eau_depuis_source(hierarchie h, float t, int source) {
-  
+// On suit le même principe que pour les questions 15 et 16
+
+int idx_of_in(int *arr, int elt, int size) {
+  for (int i = 0; i < size; i++) {
+    if (arr[i] == elt)
+      return i;
+  }
+  fprintf(stderr, "Erreur: élément [%d] non présent\n", elt);
+  exit(EXIT_FAILURE);
+}
+
+void shift_to_beginning(int *arr, int idx_source, int idx_dest) {
+  int step_count = abs(idx_source-idx_dest);
+  int direction_unit = (step_count == 0) ? 0 : (idx_source-idx_dest)/step_count;
+  int idx = idx_source;
+
+  for (int i = 0; i < step_count; i++) {
+    int temp = arr[idx-1];
+    arr[idx-1] = arr[idx];
+    arr[idx] = temp;
+    idx-=1;
+  }
+}
+
+int *ordre_remplissage_depuis_source(hierarchie h, int rect) {
+  int *ordre = ordre_remplissage_depuis_origine(h)
+                   ->contenu; // On considère déjà l'ordre depuis l'origine.
+  // L'ordre depuis la source "rect" est le segment exact de l'ordre depuis la
+  // source qui concerne rect et sa descendance entière. En effet,
+  // intuitivement, placer la source à "rect" met seulement en priorité le
+  // remplissage de la descendance de "rect", mais l'ordre de remplissage
+  // en-dessous de "rect" reste le même.
+
+  pile *p = creer_pile(h.taille);
+  _dfs_ordre(h, p, rect);
+  int start_idx = idx_of_in(ordre, rect, h.taille) - (p->taille - 1); // "rect" est rempli en dernier dans sa descendance
+  // printf("%d\n", start_idx);
+  for (int i = 0; i < p->taille; i++) {
+    int idx = start_idx + i;
+    shift_to_beginning(ordre, idx, i);
+  }
+
+  return ordre;
+}
+
+float *hauteurs_eau_depuis_source(hierarchie h, float t, int rect) {
+  float *hauteur = malloc(sizeof(float) * h.taille);
+  assert(hauteur);
+  int *ordre = ordre_remplissage_depuis_source(h, rect);
+
+  float remaining_time = t;
+  for (int i = 0; i < h.taille; i++) {
+    int idx = ordre[i];
+    if (idx == 0)
+      hauteur[idx] = 0.0; // Puisque le rectangle 0 est arbitrairement haut
+    else
+      hauteur[idx] =
+          clamp_to_one_exceed(remaining_time / (float)h.largeur[idx]);
+    remaining_time =
+        clamp_to_zero_exceed(remaining_time - (float)h.largeur[idx]);
+  }
+  return hauteur;
 }
 
 void print_arr_float(float *arr, int size) {
   for (int i = 0; i < size; i++) {
     printf("%f, ", arr[i]);
-  }
+  } 
   printf("\n");
 }
 
@@ -591,8 +651,14 @@ int main() {
 
   print_stack(ordre_remplissage_depuis_origine(h));
   print_arr_float(hauteurs_eau_depuis_origine(h, 15.0), h.taille);
+  print_arr_float(hauteurs_eau_depuis_source(h, 15.0, 5), h.taille);
   print_arr_int(volumes_totaux(h), h.taille);
-  dessiner_eau(h, hauteurs_eau_depuis_origine(h, 13.0));
+  dessiner_eau(h, hauteurs_eau_depuis_origine(h, 15.0));
+  dessiner_eau(h, hauteurs_eau_depuis_source(h, 8.0, 11));
+
+  print_arr_int(ordre_remplissage_depuis_origine(h)->contenu, h.taille);
+    print_arr_int(ordre_remplissage_depuis_source(h, 5), h.taille);
+
 
   liberer_hierarchie(h);
 
