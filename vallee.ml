@@ -10,18 +10,27 @@ let vallee_4 = [B; B; B; D; D; B; D; D; D; D; B; B; B; B; B; B;
 
 
 (*** Question 1 ***)
+let rec list_len l = match l with 
+  | [] -> 0
+  | h::t -> 1 + list_len t;;
 
 let est_sans_rebroussement (g : direction list) : bool =
-  if list_len l = 1 then true
+  (* Cas g = [_] *)
+  if list_len g = 1 then begin
+    let f::_ = g in if (f = B || f = H) then false else true end else
+(* Cas autre: g contient str. plus qu'un élément *)
   let forbidden = ref H in
-  let rec aux li = first := false; match li with
+  let first = ref true in 
+  let rec aux li = match li with
     | [] -> true
-    | h::t -> forbidden := match h with
+    | f::[] ->if (!first) then (f <> H) else (f <> B)
+    | h::t -> let res = h <> !forbidden in forbidden := (match h with
       | B -> H
       | H -> B
       | D -> G
-      | G -> D;
-      h <> !forbidden in 
+      | G -> D);
+      first := false;
+      res && (aux t) in 
   aux g;;
 
 (*** Tests question 1 ***)
@@ -41,15 +50,21 @@ let _ =
   assert (est_sans_rebroussement vallee_3);
   assert (est_sans_rebroussement vallee_4);
   Printf.printf "\nTous les tests de la question 1 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n";
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 
-
-
-
-(*** Question 2 ***)
+  (*** Question 2 ***)
 let est_une_vallee (g : direction list) : bool =
-  failwith "à compléter";
+  let up = ref false in
+  let rec aux li = match li with
+    | [] -> true
+    | h::t -> match h with
+      | H -> up := true; true && aux t
+      | B when !up -> false
+      | B -> true && aux t
+      | D -> true && aux t
+      | G -> false
+in aux g && est_sans_rebroussement g;;
 
 (*** Tests question 2 ***)
 let () =
@@ -71,24 +86,27 @@ let () =
   assert (not (est_une_vallee [B; B; B; D; B; D; D; H; D; D; B; D; H; H; H]));
   assert (not (est_une_vallee [B; D; D; D; H; H; D; D; B; B; D; D; H; H]));
   Printf.printf "\nTous les tests de la question 2 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in 
-
-
-
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 
 (*** Question 3 ***)
 let voisin ((x, y) : int * int) (d : direction) : int * int =
-  failwith "à compléter";
+  let (dx, dy)= match d with 
+    | D -> (1, 0)
+    | B -> (0, 1)
+    | H -> (0, -1)
+    | G -> (-1, 0) in 
+  (x+dx, y+dy);;
 
 
-
-
-
-(*** Question 4 ***)
+(*** Question 4***)
 let liste_des_points (g : direction list) : (int * int) list = 
-  failwith "à compléter";
-  
+  let last = ref (0, 0) in
+  let points = ref (!last::[]) in 
+  let rec aux li = match li with
+    | [] -> ()
+    | h::t -> points := ((voisin !last h)::!points); last := (voisin !last h); aux t in
+  aux g; List.rev !points;;
 
 (*** Tests question 4 ***)
 let () =
@@ -115,14 +133,20 @@ let () =
   assert(liste_des_points vallee_3 = l3);
   assert(liste_des_points vallee_4 = l4);
   Printf.printf "\nTous les tests de la question 4 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in
-
-
-
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 (*** Question 5 ***)
+
+(* On peut évaluer la complexité de est_simple à un ordre O(2n) ~ O(n), car on fait deux parcours indépendants de la liste de directions*)
+
 let est_simple (g : direction list) : bool =
-  failwith "à compléter";
+  let points = liste_des_points g in
+  let hashmap = Hashtbl.create (List.length g) in (* Table de hachage qui sert à répertorier les points déjà rencontrés, les valeurs sont donc ignorées,
+  seules les clés importent *)
+  let rec aux li = match li with 
+    | [] -> true
+    | h::t -> if Hashtbl.mem hashmap h then false else begin Hashtbl.add hashmap h 0; aux t end in
+  aux points;;
 
 (*** Tests question 5 ***)
 let _ =
@@ -134,25 +158,19 @@ let _ =
   assert (not (est_simple [G; B; D; H]));
   assert (not (est_simple [B; B; B; D; D; D; H; H; G; G; G; G; G; G]));
   Printf.printf "\nTous les tests de la question 5 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" ;
-  
+  Printf.printf "Vous pouvez passer à la question suivante.\n" ;;
 
-
-
-
-
-
-
-
-
-(******************************************************************************)
-(********************************** Partie 2 **********************************)
-(******************************************************************************)
 
 (*** Question 6 ***)
 let fond (v : direction list) : int * int =
-  failwith "à compléter";
-    
+  assert (est_une_vallee v);
+  let is_lower_than (x1, y1) (x2, y2) = y2<y1 in (* < car on veut garder la portion de profil la plus profonde ET la plus à gauche*)
+  let bottom = ref (0, 0) in
+  let points = liste_des_points v in
+  let rec aux li = match li with
+    | [] -> () 
+    | h::t -> if is_lower_than h !bottom then bottom := h; aux t in
+  aux points; !bottom;;
 
 (*** Tests question 6 ***)
 let _ =
@@ -161,12 +179,45 @@ let _ =
   assert (fond vallee_3 = (3, 7));
   assert (fond vallee_4 = (6, 10));
   Printf.printf "\nTous les tests de la question 6 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in
-  
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;    
+
 
 (*** Question 7 ***)
+let rec reduce li = match li with 
+    | [] -> failwith "unexpected error"
+    | _::[] -> []
+    | h::t -> h::(reduce t);;
+
+(* plateaux est bien en cpxité linéaire *)
 let plateaux (v : direction list) = 
-  failwith "à compléter";
+  assert (est_une_vallee v);
+  let points = reduce (liste_des_points v) in
+  let l = List.combine v points in 
+  let pass = ref true in 
+  let start = ref (-1, -1) in
+  let plates = ref [] in
+  let i = ref 0 in
+
+  let aux1 p = 
+    assert (!start <> (-1, -1));
+    pass := true; 
+    let (x1, _) = !start in let (x2, y2) = p in
+    start := (-1, -1);
+    plates := (x1, x2, y2)::!plates; in
+
+  let rec aux2 li = match li with
+    | [] -> ()
+    | (d, p)::t -> i:=!i+1; if d = D then 
+      begin
+        if !i = 0 || !pass then begin
+          start := p;
+          pass := false; 
+        end else if t=[] then begin 
+          let (x, y) = p in aux1 (x+1, y);
+        end (* Mathematically, atp start != (-1, -1), as one D had to initiate the plate in the past *)
+      end else begin
+        if !start <> (-1, -1) then aux1 p;
+      end; aux2 t in aux2 l; List.rev !plates;;
 
 (*** Tests question 7 ***)
 let _ =
@@ -180,19 +231,31 @@ let _ =
   assert (plateaux vallee_3 = p3);
   assert (plateaux vallee_4 = p4);
   Printf.printf "\nTous les tests de la question 7 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in
-  
-
-
-
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 (*** Question 8 ***)
-let decomposition_en_rectangles (v : direction list) = 
-  failwith "à compléter";
+let decomposition_en_rectangles v = 
+  let points = liste_des_points v in
+  let p = List.stable_sort (fun (_, _, y) (_, _, _y) -> - compare y _y) (plateaux v) in
 
+  let max_width li = 
+    let arr = Array.of_list li in 
+    let length = Array.length arr in 
+    let (x2, _) = arr.(length-1) in 
+    let (x1, _) = arr.(0) in 
+    abs(x2-x1) in
 
+  let top_width = max_width points in
 
-(*** Tests question 8 ***)
+  let rec aux_core li = 
+    match li with
+    | [] -> []
+    | (x1, x2, y)::[] -> (top_width, -1)::[]
+    | (x1, x2, y)::(_x1, _x2, _y)::[] -> if y = _y then (top_width, -1)::[] else (top_width-(_x2-_x1), abs(_y-y))::(top_width, -1)::[]
+    | (x1, x2, y)::(_x1, _x2, _y)::(__x1, __x2, __y)::l -> let diff = if compare x1 _x1 <= 0 then (_x2-x1) else (x2-_x1) in
+      if y = _y then begin (diff, abs(__y-_y))::aux_core((__x1, __x2, __y)::l) end else if _y = __y then (min (abs(__x2-_x1)) (abs(_x2-__x1)), abs(_y-y))::aux_core((_x1, _x2, _y)::(__x1, __x2, __y)::l) else (diff-(_x2-_x1), abs(_y-y))::aux_core((_x1, _x2, _y)::(__x1, __x2, __y)::l) in
+  aux_core p;;
+
 let _ =
   let r1 = [(3, 1); (6, 1); (7, 2); (8, 1); (11, 1); (13, -1)] in
   let r2 = [(2, 1); (4, 3); (5, -1)] in
@@ -203,12 +266,20 @@ let _ =
   assert (decomposition_en_rectangles vallee_3 = r3);
   assert (decomposition_en_rectangles vallee_4 = r4);
   Printf.printf "\nTous les tests de la question 8 ont été validés.\n";
-  Printf.printf "Vous pouvez passer à la question suivante.\n" in
-
+  Printf.printf "Vous pouvez passer à la question suivante.\n";;
 
 (*** Question 9 ***)
 let hauteur_de_l_eau (t : float) (v : direction list) =
-  failwith "à compléter";
+  let rectangles = decomposition_en_rectangles v in
+
+  let rec aux t_remain h_acc = function
+    | [] -> h_acc
+    | (w, h)::rest -> let wf = float_of_int w in
+    if h = -1 then h_acc +. t_remain /. wf else begin
+      let hf = float_of_int h in 
+      let t_rect = wf *. hf in
+      if t_rect>t_remain then h_acc +. t_remain /. wf else hf +. (aux (t_remain-.(wf *. hf)) h_acc rest) end in
+  aux t 0. rectangles;;
 
 (*** Tests question 9 ***)
 let _ =
@@ -242,11 +313,7 @@ let _ =
   assert (hauteur_de_l_eau 37.0 vallee_4 = 9.0);
 
   Printf.printf "\nTous les tests de la question 9 ont été validés.\n";
-  Printf.printf "Vous avez terminé la partie OCaml.\n";
-
-
-
-
+  Printf.printf "Vous avez terminé la partie OCaml.\n";;
 
 (******************************************************************************)
 (************************************ Bonus ***********************************)

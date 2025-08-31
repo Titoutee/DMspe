@@ -222,7 +222,7 @@ void test_pile() {
   assert(est_vide(p));
   liberer_pile(p);
 
-  printf("Bravo, tous les tests ont été passés !\n");
+  printf("Bravo, tous les tests ont été passés!\n");
 }
 
 /*** Question 14 ***/
@@ -554,7 +554,7 @@ int *volumes_totaux(hierarchie h) {
   return volume;
 }
 
-/*** Question 19 ***/
+/*** Question 19 -> NON ABOUTIE ***/
 // On suit le même principe que pour les questions 15 et 16
 
 int idx_of_in(int *arr, int elt, int size) {
@@ -568,7 +568,7 @@ int idx_of_in(int *arr, int elt, int size) {
 
 void shift_to_beginning(int *arr, int idx_source, int idx_dest) {
   int step_count = abs(idx_source-idx_dest);
-  int direction_unit = (step_count == 0) ? 0 : (idx_source-idx_dest)/step_count;
+  // int direction_unit = (step_count == 0) ? 0 : (idx_source-idx_dest)/step_count;
   int idx = idx_source;
 
   for (int i = 0; i < step_count; i++) {
@@ -654,10 +654,10 @@ int main() {
   print_arr_float(hauteurs_eau_depuis_source(h, 15.0, 5), h.taille);
   print_arr_int(volumes_totaux(h), h.taille);
   dessiner_eau(h, hauteurs_eau_depuis_origine(h, 15.0));
-  dessiner_eau(h, hauteurs_eau_depuis_source(h, 8.0, 11));
+  // dessiner_eau(h, hauteurs_eau_depuis_source(h, 8.0, 11));
 
   print_arr_int(ordre_remplissage_depuis_origine(h)->contenu, h.taille);
-    print_arr_int(ordre_remplissage_depuis_source(h, 5), h.taille);
+  // print_arr_int(ordre_remplissage_depuis_source(h, 5), h.taille);
 
 
   liberer_hierarchie(h);
